@@ -1,0 +1,382 @@
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {MARKETS, seedUsers, seedProfessionals} from './markets.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT || 3000);
+const DATA = path.join(__dirname, 'data', 'db.json');
+const PUBLIC = path.join(__dirname, 'public');
+const MAX_BODY = 750_000;
+
+const seed = {
+  users: seedUsers,
+  professionals: seedProfessionals,
+  jobs: [],
+  quotes: [],
+  bookings: [],
+  messages: [],
+  reviews: []
+};
+
+function load() {
+  try {
+    return JSON.parse(fs.readFileSync(DATA, 'utf8'));
+  } catch {
+    fs.mkdirSync(path.dirname(DATA), {recursive: true});
+    fs.writeFileSync(DATA, JSON.stringify(seed, null, 2));
+    return structuredClone(seed);
+  }
+}
+
+let db = load();
+function save() {
+  fs.writeFileSync(DATA, JSON.stringify(db, null, 2));
+}
+function id(prefix) {
+  return prefix + '_' + crypto.randomBytes(5).toString('hex');
+}
+function send(res, status, data, type = 'application/json') {
+  res.writeHead(status, {
+    'Content-Type': type,
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,OPTIONS'
+  });
+  res.end(type === 'application/json' ? JSON.stringify(data) : data);
+}
+async function body(req) {
+  const len = Number(req.headers['content-length'] || 0);
+  if (len > MAX_BODY) throw Object.assign(new Error('Payload too large'), {status: 413});
+  const chunks = [];
+  let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > MAX_BODY) throw Object.assign(new Error('Payload too large'), {status: 413});
+    chunks.push(c);
+  }
+  const s = Buffer.concat(chunks).toString();
+  if (!s) return {};
+  try {
+    return JSON.parse(s);
+  } catch {
+    throw Object.assign(new Error('Invalid JSON'), {status: 400});
+  }
+}
+function norm(s) {
+  return String(s || '')
+    .trim()
+    .toLocaleLowerCase('sv-SE')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/å/g, 'a')
+    .replace(/ä/g, 'a')
+    .replace(/ö/g, 'o');
+}
+function file(reqPath) {
+  const decoded = decodeURIComponent(reqPath.split('?')[0]);
+  const clean = path.posix.normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, '');
+  const rel = clean === '/' ? 'index.html' : clean.replace(/^\//, '');
+  const p = path.resolve(PUBLIC, rel);
+  if (p !== PUBLIC && !p.startsWith(PUBLIC + path.sep)) return null;
+  return p;
+}
+function currentUser(req) {
+  const raw = req.headers.authorization || '';
+  const token = raw.startsWith('Bearer ') ? raw.slice(7) : (req.headers['x-user-id'] || '');
+  return db.users.find(u => u.id === token) || null;
+}
+function categoriesMatch(pro, category) {
+  if (!category) return true;
+  const cat = norm(category);
+  const hay = [pro.service, ...(pro.services || [])].map(norm).join(' | ');
+  if (hay.includes(cat) || cat.includes(hay)) return true;
+  const aliases = {
+    'furniture assembly': ['furniture', 'assemble', 'wardrobe', 'ikea'],
+    carpentry: ['carp', 'wood', 'shelf'],
+    'home repair': ['repair', 'fix', 'handyman', 'leak', 'door'],
+    cleaning: ['clean', 'städa', 'stadning'],
+    moving: ['move', 'flytt', 'relocation']
+  };
+  for (const svc of pro.services || []) {
+    const key = norm(svc);
+    if (cat.includes(key) || key.includes(cat)) return true;
+    if ((aliases[key] || []).some(a => cat.includes(a))) return true;
+  }
+  return false;
+}
+function market(code) {
+  return MARKETS.find(m => m.code === String(code || '').toUpperCase()) || MARKETS[0];
+}
+function matchPros({country, city, category}) {
+  return db.professionals.filter(p => {
+    const countryOk = !country || String(p.country).toUpperCase() === String(country).toUpperCase();
+    const cityOk = !city || norm(p.city) === norm(city);
+    return countryOk && cityOk && categoriesMatch(p, category);
+  });
+}
+async function ai(text, context = {}) {
+  if (process.env.OPENAI_API_KEY) {
+    const r = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        input: [
+          {
+            role: 'system',
+            content: [{
+              type: 'input_text',
+              text: 'You are OuskeyFix job-intake assistant for a multi-country local services marketplace. Extract a local service request. Return JSON only with category (one of: Furniture assembly, Carpentry, Home repair, Cleaning, Moving, Garden services), title, description, urgency, country (ISO2 if known), city, preferredTime, questions (array of short follow-ups). Never diagnose dangerous conditions or guarantee price. If the job sounds dangerous (gas, major electrical, structural collapse), set urgency to Safety review needed.'
+            }]
+          },
+          {role: 'user', content: [{type: 'input_text', text: JSON.stringify({text, context})}]}
+        ],
+        text: {format: {type: 'json_object'}}
+      })
+    });
+    if (r.ok) {
+      const j = await r.json();
+      const out = j.output_text || j.output?.map(x => x.content?.map(c => c.text).join('')).join('');
+      try { return JSON.parse(out); } catch {}
+    }
+  }
+  const t = text.toLowerCase();
+  let category = 'Home repair';
+  if (t.includes('clean') || t.includes('städ')) category = 'Cleaning';
+  else if (t.includes('move') || t.includes('flytt')) category = 'Moving';
+  else if (t.includes('wardrobe') || t.includes('assemble') || t.includes('furniture') || t.includes('ikea')) category = 'Furniture assembly';
+  else if (t.includes('garden') || t.includes('trädgård')) category = 'Garden services';
+  else if (t.includes('carp') || t.includes('snick')) category = 'Carpentry';
+  const questions = [];
+  if (!context.city) questions.push('Which city should we search in?');
+  if (!context.preferredTime) questions.push('When should the work be done?');
+  return {
+    category,
+    title: text.slice(0, 70),
+    description: text,
+    urgency: /gas|electrical fire|collapse|eldsvåda/.test(t) ? 'Safety review needed' : 'Normal',
+    city: context.city || 'Umeå',
+    preferredTime: context.preferredTime || 'Flexible',
+    questions
+  };
+}
+
+async function route(req, res) {
+  if (req.method === 'OPTIONS') return send(res, 204, {});
+  const u = new URL(req.url, `http://${req.headers.host}`);
+  const p = u.pathname;
+  const q = Object.fromEntries(u.searchParams.entries());
+
+  if (p === '/api/health') return send(res, 200, {ok: true, service: 'OuskeyFix', version: '0.4.0', markets: MARKETS.length});
+  if (p === '/api/markets' && req.method === 'GET') return send(res, 200, {markets: MARKETS});
+
+  if (p === '/api/session' && req.method === 'POST') {
+    const b = await body(req);
+    const user = db.users.find(x => x.id === b.userId);
+    if (!user) return send(res, 404, {error: 'User not found'});
+    return send(res, 200, {user, token: user.id, note: 'Demo session only. Not production auth.'});
+  }
+  if (p === '/api/users' && req.method === 'GET') {
+    return send(res, 200, {users: db.users.map(({id, name, role, city, country}) => ({id, name, role, city, country}))});
+  }
+
+  if (p === '/api/professionals' && req.method === 'GET') {
+    return send(res, 200, {professionals: matchPros({country: q.country, city: q.city, category: q.category})});
+  }
+
+  if (p === '/api/ai/intake' && req.method === 'POST') {
+    const b = await body(req);
+    return send(res, 200, {job: await ai(b.text || '', b.context || {})});
+  }
+
+  if (p === '/api/jobs' && req.method === 'POST') {
+    const b = await body(req);
+    if (b.photo?.dataUrl && String(b.photo.dataUrl).length > 200_000) {
+      return send(res, 413, {error: 'Photo too large for the demo database. Use a smaller image.'});
+    }
+    const job = {
+      id: id('job'),
+      customerId: b.customerId || currentUser(req)?.id || 'u_demo',
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      title: b.title || b.description || 'Service request',
+      description: b.description || b.title || '',
+      category: b.category || 'Home repair',
+      country: (b.country || 'SE').toUpperCase(),
+      city: b.city || market(b.country).cities[0],
+      currency: b.currency || market(b.country).currency,
+      preferredTime: b.preferredTime || 'Flexible',
+      urgency: b.urgency || 'Normal',
+      photo: b.photo ? {name: b.photo.name, attached: true} : null
+    };
+    db.jobs.push(job);
+    save();
+    return send(res, 201, {job});
+  }
+  if (p === '/api/jobs' && req.method === 'GET') {
+    let jobs = db.jobs.slice();
+    if (q.status) jobs = jobs.filter(j => j.status === q.status);
+    if (q.city) jobs = jobs.filter(j => norm(j.city) === norm(q.city));
+    if (q.country) jobs = jobs.filter(j => String(j.country || '').toUpperCase() === String(q.country).toUpperCase());
+    if (q.category) jobs = jobs.filter(j => norm(j.category) === norm(q.category));
+    if (q.customerId) jobs = jobs.filter(j => j.customerId === q.customerId);
+    if (q.professionalId) {
+      const pro = db.professionals.find(x => x.id === q.professionalId);
+      jobs = jobs.filter(j => j.status === 'open' && pro && String(j.country || pro.country).toUpperCase() === String(pro.country).toUpperCase() && norm(j.city) === norm(pro.city) && categoriesMatch(pro, j.category));
+    }
+    return send(res, 200, {jobs});
+  }
+  if (p.startsWith('/api/jobs/') && req.method === 'GET') {
+    const job = db.jobs.find(x => x.id === p.split('/')[3]);
+    return job ? send(res, 200, {job}) : send(res, 404, {error: 'Job not found'});
+  }
+
+  if (p === '/api/quotes' && req.method === 'POST') {
+    const b = await body(req);
+    const job = db.jobs.find(x => x.id === b.jobId);
+    if (!job) return send(res, 404, {error: 'Job not found'});
+    const qte = {
+      id: id('quote'),
+      status: 'sent',
+      createdAt: new Date().toISOString(),
+      jobId: b.jobId,
+      professionalId: b.professionalId,
+      amount: b.amount == null ? null : Number(b.amount),
+      currency: b.currency || market(job.country).currency,
+      description: b.description || ''
+    };
+    db.quotes.push(qte);
+    save();
+    return send(res, 201, {quote: qte});
+  }
+  if (p === '/api/quotes' && req.method === 'GET') {
+    let quotes = db.quotes.slice();
+    if (q.jobId) quotes = quotes.filter(x => x.jobId === q.jobId);
+    if (q.professionalId) quotes = quotes.filter(x => x.professionalId === q.professionalId);
+    if (q.customerId) {
+      const ids = new Set(db.jobs.filter(j => j.customerId === q.customerId).map(j => j.id));
+      quotes = quotes.filter(x => ids.has(x.jobId));
+    }
+    return send(res, 200, {quotes});
+  }
+  if (p.startsWith('/api/quotes/') && p.endsWith('/accept') && req.method === 'POST') {
+    const quoteId = p.split('/')[3];
+    const quote = db.quotes.find(x => x.id === quoteId);
+    if (!quote) return send(res, 404, {error: 'Quote not found'});
+    quote.status = 'accepted';
+    db.quotes.filter(x => x.jobId === quote.jobId && x.id !== quote.id && x.status === 'sent').forEach(x => { x.status = 'declined'; });
+    const job = db.jobs.find(x => x.id === quote.jobId);
+    if (job) job.status = 'booked';
+    const booking = {
+      id: id('book'),
+      status: 'confirmed',
+      createdAt: new Date().toISOString(),
+      jobId: quote.jobId,
+      quoteId: quote.id,
+      professionalId: quote.professionalId,
+      customerId: job?.customerId || 'u_demo',
+      amount: quote.amount || 0,
+      currency: quote.currency || 'SEK'
+    };
+    db.bookings.push(booking);
+    save();
+    return send(res, 200, {quote, booking});
+  }
+
+  if (p === '/api/bookings' && req.method === 'POST') {
+    const b = await body(req);
+    const booking = {
+      id: id('book'),
+      status: 'confirmed',
+      createdAt: new Date().toISOString(),
+      ...b
+    };
+    db.bookings.push(booking);
+    const j = db.jobs.find(x => x.id === b.jobId);
+    if (j) j.status = 'booked';
+    save();
+    return send(res, 201, {booking});
+  }
+  if (p === '/api/bookings' && req.method === 'GET') {
+    let bookings = db.bookings.slice();
+    if (q.customerId) bookings = bookings.filter(x => x.customerId === q.customerId);
+    if (q.professionalId) bookings = bookings.filter(x => x.professionalId === q.professionalId);
+    return send(res, 200, {bookings});
+  }
+
+  if (p === '/api/messages' && req.method === 'POST') {
+    const b = await body(req);
+    const m = {id: id('msg'), createdAt: new Date().toISOString(), ...b};
+    db.messages.push(m);
+    save();
+    return send(res, 201, {message: m});
+  }
+  if (p === '/api/messages' && req.method === 'GET') {
+    let messages = db.messages.slice();
+    if (q.jobId) messages = messages.filter(x => x.jobId === q.jobId);
+    return send(res, 200, {messages});
+  }
+
+  if (p === '/api/reviews' && req.method === 'POST') {
+    const b = await body(req);
+    const r = {id: id('rev'), createdAt: new Date().toISOString(), ...b};
+    db.reviews.push(r);
+    save();
+    return send(res, 201, {review: r});
+  }
+  if (p === '/api/reviews' && req.method === 'GET') {
+    let reviews = db.reviews.slice();
+    if (q.professionalId) reviews = reviews.filter(x => x.professionalId === q.professionalId);
+    return send(res, 200, {reviews});
+  }
+
+  if (p === '/api/payments/checkout' && req.method === 'POST') {
+    const b = await body(req);
+    return send(res, 200, {
+      mode: 'demo',
+      status: 'requires_provider_connection',
+      amount: b.amount,
+      currency: b.currency || 'SEK',
+      message: 'Payment provider connection required before live charges. Booking can still be recorded as a demo reservation.'
+    });
+  }
+
+  if (p === '/api/admin/summary' && req.method === 'GET') {
+    const month = new Date().toISOString().slice(0, 7);
+    const earnings = db.bookings
+      .filter(b => (b.createdAt || '').startsWith(month))
+      .reduce((s, b) => s + Number(b.amount || 0), 0);
+    return send(res, 200, {
+      customers: db.users.filter(x => x.role === 'customer').length,
+      professionals: db.professionals.length,
+      jobs: db.jobs.length,
+      openJobs: db.jobs.filter(j => j.status === 'open').length,
+      quotes: db.quotes.length,
+      bookings: db.bookings.length,
+      reviews: db.reviews.length,
+      monthEarningsSEK: earnings
+    });
+  }
+
+  if (p.startsWith('/api/')) return send(res, 404, {error: 'API route not found'});
+
+  const fp = file(p);
+  if (!fp) return send(res, 403, 'Forbidden', 'text/plain');
+  fs.readFile(fp, (e, d) => {
+    if (e) return send(res, 404, 'Not found', 'text/plain');
+    const ext = path.extname(fp);
+    const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json'};
+    send(res, 200, d, types[ext] || 'application/octet-stream');
+  });
+}
+
+http.createServer((req, res) => route(req, res).catch(e => {
+  console.error(e);
+  send(res, e.status || 500, {error: e.message || 'Server error'});
+})).listen(PORT, () => console.log(`OuskeyFix v0.4 running at http://localhost:${PORT}`));
