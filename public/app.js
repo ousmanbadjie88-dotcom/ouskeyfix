@@ -90,7 +90,7 @@ function render() {
       </div>
     </header>
     ${state.user.role === 'customer' ? customer() : professional()}
-    <div class="footer">OuskeyFix v0.4 • Multi-market demo • Local matching only • No live payments</div>
+    <div class="footer">OuskeyFix • Local matching by country and city • Payments coming next</div>
   </div>`;
 }
 
@@ -108,9 +108,10 @@ function home() {
       <h2>What do you need help with?</h2>
       <div class="stack" style="margin-top:14px">
         <button class="btn primary" onclick="startAI()">✨ Tell OuskeyFix</button>
-        <button class="btn secondary" onclick="quick('Furniture assembly')">🪑 Furniture assembly</button>
+        <button class="btn secondary" onclick="quick('Building construction')">🏗️ Construction</button>
+        <button class="btn secondary" onclick="quick('Car mechanic')">🚗 Mechanic</button>
+        <button class="btn secondary" onclick="quick('Carpentry')">🔨 Carpentry</button>
         <button class="btn secondary" onclick="quick('Cleaning')">🧹 Cleaning</button>
-        <button class="btn secondary" onclick="quick('Moving')">📦 Moving</button>
         <button class="btn secondary" onclick="quick('Home repair')">🏠 Home repair</button>
       </div>
     </div>
@@ -125,7 +126,7 @@ function home() {
   </section>
   <section class="section">
     <h2>Popular services</h2>
-    <div class="grid">${[['🔨','Carpentry'],['🧹','Cleaning'],['📦','Moving'],['🌳','Garden services'],['🔧','Home repair'],['🪑','Furniture assembly']].map(x => `<div class="card"><div class="icon">${x[0]}</div><h3>${x[1]}</h3><button class="btn ghost" onclick="quick('${x[1]}')">Find help →</button></div>`).join('')}</div>
+    <div class="grid">${[['🏗️','Building construction'],['🚗','Car mechanic'],['🔨','Carpentry'],['🔧','Plumbing'],['⚡','Electrical'],['🎨','Painting'],['🔑','Locksmith'],['🌳','Garden services'],['🧹','Cleaning'],['📦','Moving'],['🏠','Home repair'],['🪑','Furniture assembly']].map(x => `<div class="card"><div class="icon">${x[0]}</div><h3>${x[1]}</h3><button class="btn ghost" onclick="quick('${x[1]}')">Find help →</button></div>`).join('')}</div>
   </section>`;
 }
 
