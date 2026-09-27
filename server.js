@@ -88,22 +88,32 @@ function currentUser(req) {
   const token = raw.startsWith('Bearer ') ? raw.slice(7) : (req.headers['x-user-id'] || '');
   return db.users.find(u => u.id === token) || null;
 }
+const STOP = new Set(['and','the','a','an','for','with','from','to','of','in','on','or','help','need','service','services','home','local']);
+function tokens(s) {
+  return norm(s).split(/[^a-z0-9]+/).filter(w => w.length > 2 && !STOP.has(w));
+}
 function categoriesMatch(pro, category) {
   if (!category) return true;
   const cat = norm(category);
-  const hay = [pro.service, ...(pro.services || [])].map(norm).join(' | ');
-  if (hay.includes(cat) || cat.includes(hay)) return true;
+  const catTok = new Set(tokens(category));
   const aliases = {
-    'furniture assembly': ['furniture', 'assemble', 'wardrobe', 'ikea'],
-    carpentry: ['carp', 'wood', 'shelf'],
-    'home repair': ['repair', 'fix', 'handyman', 'leak', 'door'],
-    cleaning: ['clean', 'städa', 'stadning'],
-    moving: ['move', 'flytt', 'relocation']
+    'furniture assembly': ['furniture', 'assemble', 'assembly', 'wardrobe', 'ikea', 'byra', 'hylla'],
+    carpentry: ['carpentry', 'carpenter', 'wood', 'wooden', 'shelf', 'axe', 'yxa', 'yxskaft', 'handle', 'snickeri', 'snickare', 'tool'],
+    'home repair': ['handyman', 'leak', 'door', 'hinge', 'socket', 'tap', 'kran', 'hantverkare'],
+    cleaning: ['clean', 'cleaning', 'stada', 'stadning', 'stadare'],
+    moving: ['move', 'moving', 'flytt', 'flytta', 'relocation'],
+    'garden services': ['garden', 'tradgard', 'lawn', 'grass', 'hedge']
   };
-  for (const svc of pro.services || []) {
+  const services = [pro.service, ...(pro.services || [])];
+  for (const svc of services) {
     const key = norm(svc);
-    if (cat.includes(key) || key.includes(cat)) return true;
-    if ((aliases[key] || []).some(a => cat.includes(a))) return true;
+    if (key === cat) return true;
+    const svcTok = tokens(svc);
+    const overlap = svcTok.filter(w => catTok.has(w));
+    if (overlap.length) return true;
+    const extra = aliases[key] || [];
+    if (extra.some(a => cat === a || cat.split(/[^a-z0-9]+/).includes(a))) return true;
+    if (aliases[cat] && aliases[cat].some(a => key.includes(a))) return true;
   }
   return false;
 }
@@ -148,11 +158,11 @@ async function ai(text, context = {}) {
   }
   const t = text.toLowerCase();
   let category = 'Home repair';
-  if (t.includes('clean') || t.includes('städ')) category = 'Cleaning';
-  else if (t.includes('move') || t.includes('flytt')) category = 'Moving';
-  else if (t.includes('wardrobe') || t.includes('assemble') || t.includes('furniture') || t.includes('ikea')) category = 'Furniture assembly';
-  else if (t.includes('garden') || t.includes('trädgård')) category = 'Garden services';
-  else if (t.includes('carp') || t.includes('snick')) category = 'Carpentry';
+  if (/(axe|yxa|yxskaft|handle|snick|carpentry|carpenter|wood handle|wooden)/.test(t)) category = 'Carpentry';
+  else if (/(clean|städ|stada)/.test(t)) category = 'Cleaning';
+  else if (/\b(move|moving|flytt|flytta|relocation)\b/.test(t)) category = 'Moving';
+  else if (/(wardrobe|assemble|assembly|furniture|ikea|byrå)/.test(t)) category = 'Furniture assembly';
+  else if (/(garden|trädgård|tradgard|lawn|grass)/.test(t)) category = 'Garden services';
   const questions = [];
   if (!context.city) questions.push('Which city should we search in?');
   if (!context.preferredTime) questions.push('When should the work be done?');
@@ -173,7 +183,7 @@ async function route(req, res) {
   const p = u.pathname;
   const q = Object.fromEntries(u.searchParams.entries());
 
-  if (p === '/api/health') return send(res, 200, {ok: true, service: 'OuskeyFix', version: '0.4.0', markets: MARKETS.length});
+  if (p === '/api/health') return send(res, 200, {ok: true, service: 'OuskeyFix', version: '0.5.0', markets: MARKETS.length});
   if (p === '/api/markets' && req.method === 'GET') return send(res, 200, {markets: MARKETS});
 
   if (p === '/api/session' && req.method === 'POST') {
