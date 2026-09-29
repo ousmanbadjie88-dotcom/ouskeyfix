@@ -18,7 +18,9 @@ const seed = {
   quotes: [],
   bookings: [],
   messages: [],
-  reviews: []
+  reviews: [],
+  visits: [],
+  agentRuns: []
 };
 
 function load() {
@@ -183,7 +185,7 @@ async function route(req, res) {
   const p = u.pathname;
   const q = Object.fromEntries(u.searchParams.entries());
 
-  if (p === '/api/health') return send(res, 200, {ok: true, service: 'OuskeyFix', version: '0.5.0', markets: MARKETS.length});
+  if (p === '/api/health') return send(res, 200, {ok: true, service: 'OuskeyFix', version: '0.6.0', markets: MARKETS.length});
   if (p === '/api/markets' && req.method === 'GET') return send(res, 200, {markets: MARKETS});
 
   if (p === '/api/session' && req.method === 'POST') {
@@ -357,20 +359,98 @@ async function route(req, res) {
     });
   }
 
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'badjieart@gmail.com').toLowerCase();
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ChangeMeNow';
+  const AGENTS = {
+    intake: 'Extract a local service request. JSON only.',
+    match: 'Rank ONLY given professionals. JSON: {rankedIds, reasons}.',
+    safety: 'JSON: {ok, level, message}.',
+    quote: 'JSON: {amountHint, currency, hoursHint, text}.',
+    owner: 'JSON: {headline, attention:[]}'
+  };
+
+  if (p === '/api/login' && req.method === 'POST') {
+    const b = await body(req);
+    const email = String(b.email || '').trim().toLowerCase();
+    const password = String(b.password || '');
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      return send(res, 401, {error: 'Wrong email or password'});
+    }
+    let user = db.users.find(x => x.role === 'admin');
+    if (!user) {
+      user = {id: 'u_admin', name: 'Ousman Badjie', email: ADMIN_EMAIL, role: 'admin', city: 'Umeå', country: 'SE'};
+      db.users.push(user);
+      save();
+    }
+    return send(res, 200, {user, token: user.id});
+  }
+
+  if (p === '/api/visits' && req.method === 'POST') {
+    const b = await body(req);
+    db.visits = db.visits || [];
+    db.visits.push({
+      id: id('vis'),
+      at: new Date().toISOString(),
+      path: String(b.path || '/').slice(0, 120),
+      country: String(b.country || '').slice(0, 8),
+      city: String(b.city || '').slice(0, 60)
+    });
+    if (db.visits.length > 2000) db.visits = db.visits.slice(-2000);
+    save();
+    return send(res, 201, {ok: true});
+  }
+
+  if (p === '/api/profile' && req.method === 'PUT') {
+    const usr = currentUser(req);
+    if (!usr) return send(res, 401, {error: 'Login first'});
+    const b = await body(req);
+    if (b.photo && String(b.photo).length > 200000) return send(res, 413, {error: 'Photo too large'});
+    if (b.cover && String(b.cover).length > 250000) return send(res, 413, {error: 'Cover too large'});
+    usr.photo = b.photo || usr.photo || '';
+    usr.cover = b.cover || usr.cover || '';
+    usr.accent = b.accent || usr.accent || '#6d28d9';
+    if (b.name) usr.name = b.name;
+    const pro = db.professionals.find(x => x.id === usr.id);
+    if (pro) {
+      pro.photo = usr.photo;
+      pro.cover = usr.cover;
+      pro.accent = usr.accent;
+      if (b.name) pro.name = b.name;
+    }
+    save();
+    return send(res, 200, {user: usr, professional: pro || null});
+  }
+
+  if (p === '/api/ai/run' && req.method === 'POST') {
+    const b = await body(req);
+    const agent = AGENTS[b.agent] ? b.agent : 'intake';
+    let result = {answer: 'Describe the job in your city. OuskeyFix will match a local professional.', agent};
+    db.agentRuns = db.agentRuns || [];
+    db.agentRuns.push({id: id('ai'), at: new Date().toISOString(), agent, userId: currentUser(req)?.id || null});
+    save();
+    return send(res, 200, {agent, result});
+  }
+
   if (p === '/api/admin/summary' && req.method === 'GET') {
-    const month = new Date().toISOString().slice(0, 7);
-    const earnings = db.bookings
-      .filter(b => (b.createdAt || '').startsWith(month))
-      .reduce((s, b) => s + Number(b.amount || 0), 0);
+    const usr = currentUser(req);
+    if (!usr || usr.role !== 'admin') return send(res, 403, {error: 'Admin only. Log in first.'});
+    const now = Date.now();
+    const today = new Date().toISOString().slice(0, 10);
+    const visits = db.visits || [];
     return send(res, 200, {
-      customers: db.users.filter(x => x.role === 'customer').length,
-      professionals: db.professionals.length,
-      jobs: db.jobs.length,
-      openJobs: db.jobs.filter(j => j.status === 'open').length,
+      adminName: usr.name,
+      visitsToday: visits.filter(v => String(v.at || '').slice(0, 10) === today).length,
+      visits7d: visits.filter(v => now - Date.parse(v.at) < 7 * 86400000).length,
+      visitsTotal: visits.length,
+      signups: db.users.filter(x => x.role !== 'admin').length,
+      companies: db.professionals.length,
+      jobsOpen: db.jobs.filter(j => j.status === 'open').length,
       quotes: db.quotes.length,
       bookings: db.bookings.length,
-      reviews: db.reviews.length,
-      monthEarningsSEK: earnings
+      recentVisits: visits.slice(-50).reverse(),
+      users: db.users.filter(x => x.role !== 'admin').map(({id, name, role, city, country}) => ({id, name, role, city, country})),
+      recentJobs: db.jobs.slice(-30).reverse(),
+      recentBookings: db.bookings.slice(-30).reverse()
     });
   }
 
@@ -389,4 +469,4 @@ async function route(req, res) {
 http.createServer((req, res) => route(req, res).catch(e => {
   console.error(e);
   send(res, e.status || 500, {error: e.message || 'Server error'});
-})).listen(PORT, () => console.log(`OuskeyFix v0.4 running at http://localhost:${PORT}`));
+})).listen(PORT, () => console.log(`OuskeyFix v0.6 running at http://localhost:${PORT}`));
