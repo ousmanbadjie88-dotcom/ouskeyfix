@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OuskeyFix — Owner dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .dash { max-width: 1100px; margin: 32px auto; padding: 0 20px 60px; }
+    .nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; }
+    .num { background: #fff; border: 1px solid var(--line, #e6e6ef); border-radius: 16px; padding: 16px; }
+    .num b { display: block; font-size: 28px; margin-top: 6px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background: #f6f6fb; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .err { color: #b00020; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="dash" id="root"></div>
+  <script>
+    const KEY = 'ouskeyfix_admin';
+    let token = localStorage.getItem(KEY) || '';
+    async function api(url, opts = {}) {
+      const r = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', Authorization: token ? 'Bearer ' + token : '', 'X-User-Id': token || '' },
+        ...opts
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Request failed');
+      return j;
+    }
+    function loginView(err) {
+      document.getElementById('root').innerHTML = `<div class="card" style="max-width:420px;margin:80px auto"><div class="eyebrow">OuskeyFix owner</div><h1>Log in</h1><p class="meta">Only you see visits, signups, jobs and bookings.</p><form onsubmit="doLogin(event)"><label class="label">Email</label><input class="input" id="email" type="email" value="badjieart@gmail.com" required /><label class="label" style="margin-top:10px">Password</label><input class="input" id="pass" type="password" required /><button class="btn primary" style="margin-top:16px">Log in</button>${err ? `<p class="err">${err}</p>` : ''}</form><p class="meta" style="margin-top:16px"><a href="/">← Back to OuskeyFix</a></p></div>`;
+    }
+    async function doLogin(e) {
+      e.preventDefault();
+      try {
+        const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('email').value.trim(), password: document.getElementById('pass').value }) });
+        token = j.token; localStorage.setItem(KEY, token); await loadDash();
+      } catch (err) { loginView(err.message); }
+    }
+    function logout() { token = ''; localStorage.removeItem(KEY); loginView(''); }
+    function rows(list, cols) {
+      if (!list || !list.length) return '<tr><td colspan="8">Nothing yet</td></tr>';
+      return list.map(item => '<tr>' + cols.map(c => `<td>${esc(c(item))}</td>`).join('') + '</tr>').join('');
+    }
+    const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&','<':'<','>':'>',"'":'&#39;','"':'"'}[c]));
+    async function loadDash() {
+      try {
+        const d = await api('/api/admin/summary');
+        document.getElementById('root').innerHTML = `<div class="row"><div><div class="eyebrow">Owner dashboard</div><h1>Website movement</h1><p class="meta">Logged in as ${esc(d.adminName || 'Owner')}</p></div><div class="stack"><button class="btn secondary" onclick="loadDash()">Refresh</button><button class="btn ghost" onclick="logout()">Log out</button></div></div><div class="nums"><div class="num">Visits today<b>${d.visitsToday}</b></div><div class="num">Visits 7 days<b>${d.visits7d}</b></div><div class="num">All visits<b>${d.visitsTotal}</b></div><div class="num">Signups<b>${d.signups}</b></div><div class="num">Companies<b>${d.companies}</b></div><div class="num">Open jobs<b>${d.jobsOpen}</b></div><div class="num">Quotes<b>${d.quotes}</b></div><div class="num">Bookings<b>${d.bookings}</b></div></div><h2>Recent visits</h2><table><tr><th>Time</th><th>Page</th><th>Country</th><th>City</th></tr>${rows(d.recentVisits, [x => (x.at || '').replace('T',' ').slice(0,16), x => x.path || '/', x => x.country || '—', x => x.city || '—'])}</table><h2 style="margin-top:28px">Signups</h2><table><tr><th>Name</th><th>Role</th><th>City</th><th>Country</th></tr>${rows(d.users, [x => x.name, x => x.role, x => x.city, x => x.country])}</table><h2 style="margin-top:28px">Job requests</h2><table><tr><th>Title</th><th>Category</th><th>City</th><th>Status</th><th>When</th></tr>${rows(d.recentJobs, [x => x.title, x => x.category, x => x.city, x => x.status, x => (x.createdAt || '').replace('T',' ').slice(0,16)])}</table><h2 style="margin-top:28px">Bookings</h2><table><tr><th>ID</th><th>Status</th><th>Amount</th><th>When</th></tr>${rows(d.recentBookings, [x => x.id, x => x.status, x => (x.amount || 0) + ' ' + (x.currency || ''), x => (x.createdAt || '').replace('T',' ').slice(0,16)])}</table><p class="meta" style="margin-top:24px"><a href="/">Open public site</a></p>`;
+      } catch (err) { logout(); loginView(err.message); }
+    }
+    if (token) loadDash(); else loginView('');
+  </script>
+</body>
+</html>
