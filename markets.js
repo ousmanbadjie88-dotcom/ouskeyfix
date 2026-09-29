@@ -7,35 +7,10 @@ export const MARKETS = [
   {code: 'KE', name: 'Kenya', currency: 'KES', cities: ['Nairobi', 'Mombasa'], paymentHint: 'M-Pesa later', verifyHint: 'ID + business check later'}
 ];
 
-export const CATS = [
-  'Furniture assembly',
-  'Carpentry',
-  'Home repair',
-  'Cleaning',
-  'Moving',
-  'Garden services',
-  'Car mechanic',
-  'Plumbing',
-  'Electrical',
-  'Painting',
-  'Locksmith',
-  'Building construction'
-];
+export const CATS = ['Furniture assembly','Carpentry','Home repair','Cleaning','Moving','Garden services','Car mechanic','Plumbing','Electrical','Painting','Locksmith','Building construction'];
 
 function pro(id, name, service, services, extra = {}) {
-  return {
-    id, name, service, services,
-    rating: extra.rating || 4.7,
-    jobs: extra.jobs || 64,
-    distance: extra.distance || '3.2 km',
-    price: extra.price || 'Quote required',
-    verified: extra.verified !== false,
-    verification: extra.verified === false ? 'pending' : 'complete',
-    available: extra.available || 'Today',
-    city: extra.city || 'Umeå',
-    country: extra.country || 'SE',
-    currency: extra.currency || 'SEK'
-  };
+  return { id, name, service, services, rating: extra.rating || 4.7, jobs: extra.jobs || 64, distance: extra.distance || '3.2 km', price: extra.price || 'Quote required', verified: extra.verified !== false, verification: extra.verified === false ? 'pending' : 'complete', available: extra.available || 'Today', city: extra.city || 'Umeå', country: extra.country || 'SE', currency: extra.currency || 'SEK' };
 }
 
 export const seedProfessionals = [
@@ -57,6 +32,7 @@ export const seedProfessionals = [
 ];
 
 export const seedUsers = [
+  {id: 'u_admin', name: 'Ousman Badjie', email: 'badjieart@gmail.com', role: 'admin', city: 'Umeå', country: 'SE'},
   {id: 'u_demo', name: 'Demo Customer', email: 'demo@ouskeyfix.com', role: 'customer', city: 'Umeå', country: 'SE'},
   ...seedProfessionals.map(p => ({id: p.id, name: p.name, role: 'professional', country: p.country, city: p.city}))
 ];
