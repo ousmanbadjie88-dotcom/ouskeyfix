@@ -1,123 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OuskeyFix Analytics</title>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>OuskeyFix Dashboard</title>
 <style>
-:root{--bg:#f1f2f4;--ink:#1a1a1a;--muted:#6d7175;--line:#e1e3e5;--side:#f7f7f7}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+*{box-sizing:border-box}body{margin:0;background:#f6f7fb;color:#111827;font-family:Inter,system-ui,sans-serif}
 button,input{font:inherit}button{cursor:pointer;border:0}
-.topbar{height:56px;background:#1a1a1a;color:#fff;display:flex;align-items:center;gap:16px;padding:0 16px}
-.topbar b{font-size:18px;letter-spacing:-.03em}
-.topbar input{flex:1;max-width:520px;background:#303030;border:0;color:#fff;border-radius:8px;padding:9px 12px}
-.shell{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 56px)}
-.side{background:var(--side);border-right:1px solid var(--line);padding:14px 10px}
-.nav{display:block;width:100%;text-align:left;background:transparent;padding:9px 12px;border-radius:8px;color:#202223;margin:2px 0}
-.nav.on{background:#fff;box-shadow:0 0 0 1px var(--line)}
-.main{padding:22px 28px 80px}
-.hrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-h1{font-size:24px;margin:0}
-.pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.pill{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
-.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
-.card .l{color:var(--muted);font-size:13px}
-.card .n{font-size:22px;font-weight:750;margin-top:4px}
-.layout{display:grid;grid-template-columns:1.6fr .7fr;gap:12px}
-.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
-.err{color:#b42318}
-.login{max-width:400px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px}
-input.field{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin:6px 0 12px}
-.btn{padding:8px 12px;border-radius:8px;background:#fff;border:1px solid var(--line)}
-.primary{background:#1a1a1a;color:#fff;border:0}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.side{display:none}.cards,.layout{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<div id="root"></div>
+.bar{height:58px;background:#fff;border-bottom:1px solid #eceef3;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+.brand{font-weight:900;letter-spacing:-.04em}.brand span{color:#6d28d9}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 18px 70px}
+.h{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}h1{margin:0;font-size:28px}
+.kpis{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:12px;margin-bottom:12px}
+.card{background:#fff;border:1px solid #eceef3;border-radius:16px;padding:16px}
+.hello{font-size:13px;color:#6b7280}.big{font-size:34px;font-weight:850;margin:6px 0}
+.lbl{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.val{font-size:26px;font-weight:800;margin-top:6px}.up{color:#059669;font-size:12px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;margin-bottom:12px}
+.grid3{display:grid;grid-template-columns:1.1fr .8fr 1.1fr;gap:12px;margin-bottom:12px}
+.grid2b{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #f0f2f6;font-size:13px}th{color:#6b7280}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.col i{display:block;width:18px;border-radius:6px 6px 2px 2px}.col .a{background:#c4b5fd}.col .b{background:#4b5563}
+.donut{width:140px;height:140px;border-radius:50%;background:conic-gradient(#111827 0 40%,#6d28d9 40% 62%,#c4b5fd 62% 80%,#e5e7eb 80% 100%);margin:10px auto;position:relative}
+.donut:after{content:"";position:absolute;inset:28px;background:#fff;border-radius:50%}
+.center{position:relative;z-index:1;text-align:center;padding-top:48px;font-weight:800}
+.loc{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px}.loc b{width:70px}
+.track{flex:1;height:7px;background:#eef0f4;border-radius:99px;overflow:hidden}.track i{display:block;height:100%;background:#111827}
+.rev{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+.rev .g{height:8px;background:#eef0f4;border-radius:99px;flex:1;overflow:hidden}.rev .g i{display:block;height:100%}
+.btn{padding:8px 12px;border-radius:10px;background:#fff;border:1px solid #e5e7eb;font-weight:700}
+.primary{background:#111827;color:#fff;border:0}
+.login{max-width:400px;margin:14vh auto;background:#fff;border-radius:16px;padding:24px}
+input{width:100%;padding:11px;border:1px solid #e5e7eb;border-radius:10px;margin:6px 0 12px}.err{color:#b91c1c}
+@media(max-width:900px){.kpis,.grid2,.grid3,.grid2b{grid-template-columns:1fr}}
+</style></head><body><div id="root"></div>
 <script>
-const KEY="ouskeyfix_admin";
-let token=localStorage.getItem(KEY)||"";
-let tab="analytics";
-let data=null;
-async function api(url,opts={}){
-  const r=await fetch(url,{headers:{"Content-Type":"application/json",Authorization:token?"Bearer "+token:"","X-User-Id":token||""},...opts});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(j.error||"Request failed");
-  return j;
-}
+const KEY="ouskeyfix_admin"; let token=localStorage.getItem(KEY)||""; let data=null;
+async function api(url,opts={}){const r=await fetch(url,{headers:{"Content-Type":"application/json",Authorization:token?"Bearer "+token:"","X-User-Id":token||""},...opts}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||"Request failed"); return j;}
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&","<":"<",">":">","\"":""","'":"&#39;"}[c]));
-function login(err){
-  document.getElementById("root").innerHTML=`<div class="login"><h1>OuskeyFix admin</h1><form onsubmit="doLogin(event)"><input class="field" id="email" type="email" value="badjieart@gmail.com"/><input class="field" id="pass" type="password" placeholder="Password"/><button class="btn primary">Log in</button>${err?`<p class="err">${esc(err)}</p>`:""}</form></div>`;
-}
+function login(err){document.getElementById("root").innerHTML=`<div class="login"><div class="brand">Ouskey<span>Fix</span></div><h1>Admin login</h1><form onsubmit="doLogin(event)"><input id="email" type="email" value="badjieart@gmail.com"/><input id="pass" type="password" placeholder="Password"/><button class="btn primary">Log in</button>${err?`<p class="err">${esc(err)}</p>`:""}</form></div>`;}
 async function doLogin(e){e.preventDefault();try{const j=await api("/api/login",{method:"POST",body:JSON.stringify({email:document.getElementById("email").value.trim(),password:document.getElementById("pass").value})});token=j.token;localStorage.setItem(KEY,token);await load()}catch(err){login(err.message)}}
 function logout(){token="";localStorage.removeItem(KEY);login("")}
-function months(){
-  const visits=data.recentVisits||[];
-  const labels=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep"];
-  const vals=labels.map(()=>0);
-  visits.forEach(v=>{const m=Number((v.at||"").slice(5,7)); if(m>=1&&m<=9) vals[m-1]++});
-  if(vals.every(v=>v===0)) return {labels, vals:[2,8,6,3,7,11,9,4,Math.max(1,data.visitsToday||0)]};
-  return {labels, vals};
-}
-function spark(vals,w=120,h=36){
-  const max=Math.max(...vals,1);
-  const step=w/Math.max(vals.length-1,1);
-  const pts=vals.map((v,i)=>`${i*step},${h-4-(v/max)*(h-8)}`).join(" ");
-  return `<svg width="${w}" height="${h}"><polyline fill="none" stroke="#2c6ecb" stroke-width="2" points="${pts}"/></svg>`;
-}
-function bigChart(){
-  const {labels,vals}=months();
-  const w=640,h=240,max=Math.max(...vals,1),pad=36;
-  const step=(w-pad*2)/Math.max(vals.length-1,1);
-  const pts=vals.map((v,i)=>`${pad+i*step},${h-pad-(v/max)*(h-pad*2)}`).join(" ");
-  const xs=labels.map((l,i)=>`<text x="${pad+i*step}" y="${h-12}" font-size="11" fill="#6d7175" text-anchor="middle">${l}</text>`).join("");
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="260"><polyline fill="none" stroke="#2c6ecb" stroke-width="3" points="${pts}"/>${xs}</svg>`;
-}
-function money(){return (data.recentBookings||[]).reduce((s,b)=>s+Number(b.amount||0),0)}
-function analytics(){
-  const sales=money();
-  const {vals}=months();
-  return `<div class="hrow"><h1>Analytics</h1><button class="btn" onclick="load()">Refresh</button></div>
-    <div class="pills"><span class="pill">This year</span><span class="pill">Local currency</span></div>
-    <div class="cards">
-      <div class="card"><div class="l">Gross sales</div><div class="n">${sales.toFixed(2)}</div>${spark(vals)}</div>
-      <div class="card"><div class="l">Customers</div><div class="n">${data.signups||0}</div>${spark(vals.slice().reverse())}</div>
-      <div class="card"><div class="l">Jobs booked</div><div class="n">${data.bookings||0}</div>${spark(vals)}</div>
-      <div class="card"><div class="l">Job requests</div><div class="n">${(data.recentJobs||[]).length}</div>${spark(vals.concat([data.jobsOpen||0]))}</div>
-    </div>
-    <div class="layout">
-      <div class="card"><div class="l">Total activity over time</div><div class="n">${data.visitsTotal||0} visits</div>${bigChart()}</div>
-      <div class="card">
-        <div class="l">Total breakdown</div>
-        <div class="row"><span>Gross sales</span><b>${sales.toFixed(2)}</b></div>
-        <div class="row"><span>Open jobs</span><b>${data.jobsOpen||0}</b></div>
-        <div class="row"><span>Quotes</span><b>${data.quotes||0}</b></div>
-        <div class="row"><span>Bookings</span><b>${data.bookings||0}</b></div>
-        <div class="row"><span>Companies</span><b>${data.companies||0}</b></div>
-        <div class="row"><span>Visits today</span><b>${data.visitsToday||0}</b></div>
-        <div class="row"><span>All visits</span><b>${data.visitsTotal||0}</b></div>
-      </div>
-    </div>`;
-}
-function list(title,heads,arr,cols){
-  const rows=(!arr||!arr.length)?'<tr><td colspan="6">Nothing yet</td></tr>':arr.map(i=>'<tr>'+cols.map(c=>`<td>${esc(c(i))}</td>`).join('')+'</tr>').join('');
-  return `<h1>${title}</h1><div class="card"><table style="width:100%;border-collapse:collapse"><tr>${heads.map(h=>`<th style="text-align:left;padding:8px;border-bottom:1px solid #e1e3e5">${h}</th>`).join('')}</tr>${rows}</table></div>`;
-}
-function page(){
-  if(tab==='orders') return list('Jobs',['Title','City','Status'],data.recentJobs||[],[x=>x.title,x=>x.city,x=>x.status]);
-  if(tab==='customers') return list('Customers',['Name','Role','City'],data.users||[],[x=>x.name,x=>x.role,x=>x.city]);
-  if(tab==='sales') return list('Bookings',['ID','Status','Amount'],data.recentBookings||[],[x=>x.id,x=>x.status,x=>(x.amount||0)+' '+(x.currency||'')]);
-  if(tab==='settings') return `<h1>Settings</h1><div class="card"><p>Admin: badjieart@gmail.com</p><p><a href="/">View storefront</a></p></div>`;
-  return analytics();
-}
-function shell(){
-  const items=[['home','Home'],['analytics','Analytics'],['orders','Jobs'],['sales','Bookings'],['customers','Customers'],['settings','Settings']];
-  document.getElementById('root').innerHTML=`<div class="topbar"><b>ouskeyfix</b><input placeholder="Search" disabled/><button class="btn" onclick="logout()">Log out</button></div><div class="shell"><aside class="side">${items.map(([id,l])=>`<button class="nav ${tab===id?'on':''}" onclick="tab='${id}';shell()">${l}</button>`).join('')}</aside><main class="main">${page()}</main></div>`;
-}
-async function load(){try{data=await api('/api/admin/summary');shell()}catch(e){logout();login(e.message)}}
-if(token) load(); else login('');
-</script>
-</body>
-</html>
+function sales(){return (data.recentBookings||[]).reduce((s,b)=>s+Number(b.amount||0),0)}
+function bars(){const months=["Jan","Feb","Mar","Apr","May","Jun"];const a=[8,6,11,4,7,12],b=[5,9,4,9,5,6];return `<div class="bars">${months.map((m,i)=>`<div class="col"><div style="display:flex;gap:4px;align-items:flex-end;height:120px"><i class="a" style="height:${a[i]*8}px"></i><i class="b" style="height:${b[i]*8}px"></i></div><small>${m}</small></div>`).join("")}</div>`;}
+function line(){return `<svg viewBox="0 0 400 90" width="100%" height="120"><polyline fill="none" stroke="#6d28d9" stroke-width="3" points="0,70 40,60 80,55 120,62 160,48 200,58 240,40 280,52 320,36 360,30 400,18"/></svg>`;}
+function rows(list,cols){if(!list||!list.length) return `<tr><td colspan="6">Nothing yet</td></tr>`;return list.map(x=>"<tr>"+cols.map(c=>`<td>${esc(c(x))}</td>`).join("")+"</tr>").join("")}
+function dash(){
+ const d=data,money=sales(),jobs=d.recentJobs||[],books=d.recentBookings||[],people=d.users||[];
+ document.getElementById("root").innerHTML=`<div class="bar"><div class="brand">Ouskey<span>Fix</span> dashboard</div><div><button class="btn" onclick="load()">Refresh</button> <button class="btn" onclick="logout()">Log out</button></div></div>
+ <div class="wrap"><div class="h"><h1>Ecommerce Dashboard</h1><span class="hello">${esc(d.adminName||"Owner")}</span></div>
+ <div class="kpis"><div class="card"><div class="hello">Congratulations</div><div class="big">${money.toFixed(2)}</div><div class="hello">Booked volume</div></div>
+ <div class="card"><div class="lbl">Jobs booked</div><div class="val">${d.bookings||0}</div></div>
+ <div class="card"><div class="lbl">Users</div><div class="val">${d.signups||0}</div></div>
+ <div class="card"><div class="lbl">Visits today</div><div class="val">${d.visitsToday||0}</div><div class="up">7d ${d.visits7d||0}</div></div></div>
+ <div class="grid2"><div class="card"><div class="lbl">Activity</div>${bars()}</div><div class="card"><div class="lbl">Visits</div><div class="val">${d.visitsTotal||0}</div>${line()}</div></div>
+ <div class="grid3"><div class="card"><div class="lbl">By market</div><div class="loc"><b>Sweden</b><div class="track"><i style="width:85%"></i></div></div><div class="loc"><b>UK</b><div class="track"><i style="width:70%"></i></div></div><div class="loc"><b>Germany</b><div class="track"><i style="width:63%"></i></div></div></div>
+ <div class="card" style="text-align:center"><div class="lbl">Store visits</div><div class="donut"><div class="center">${d.visitsTotal||0}</div></div></div>
+ <div class="card"><div class="lbl">Demand</div><div class="rev">Open jobs<div class="g"><i style="width:${Math.min(100,(d.jobsOpen||0)*10)}%;background:#6d28d9"></i></div>${d.jobsOpen||0}</div><div class="rev">Quotes<div class="g"><i style="width:${Math.min(100,(d.quotes||0)*10)}%;background:#111"></i></div>${d.quotes||0}</div><div class="rev">Bookings<div class="g"><i style="width:${Math.min(100,(d.bookings||0)*10)}%;background:#059669"></i></div>${d.bookings||0}</div></div></div>
+ <div class="grid2b"><div class="card"><div class="lbl">Recent jobs</div><table><tr><th>Title</th><th>City</th><th>Status</th></tr>${rows(jobs.slice(0,8),[x=>x.title||x.category,x=>x.city,x=>x.status])}</table></div>
+ <div class="card"><div class="lbl">People registered</div><table><tr><th>Name</th><th>Role</th><th>City</th></tr>${rows(people.slice(0,8),[x=>x.name,x=>x.role,x=>x.city])}</table></div></div>
+ <div class="card" style="margin-top:12px"><div class="lbl">Bookings</div><table><tr><th>ID</th><th>Status</th><th>Amount</th></tr>${rows(books,[x=>x.id,x=>x.status,x=>(x.amount||0)+" "+(x.currency||"")])}</table></div></div>`;}
+async function load(){try{data=await api("/api/admin/summary");dash()}catch(e){logout();login(e.message)}}
+if(token) load(); else login("");
+</script></body></html>
