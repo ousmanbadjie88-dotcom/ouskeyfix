@@ -3,42 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OuskeyFix — Owner dashboard</title>
+  <title>OuskeyFix — Admin</title>
   <link rel="stylesheet" href="/styles.css" />
   <style>
-    .dash { max-width: 1100px; margin: 32px auto; padding: 0 20px 60px; }
-    .nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; }
-    .num { background: #fff; border: 1px solid var(--line, #e6e6ef); border-radius: 16px; padding: 16px; }
-    .num b { display: block; font-size: 28px; margin-top: 6px; }
-    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-    th { background: #f6f6fb; }
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .err { color: #b00020; margin-top: 10px; }
+    body { background: #0b0b10; color: #f4f4f7; }
+    a { color: inherit; }
+    .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+    .side { background: #14141c; border-right: 1px solid #242433; padding: 22px 16px; }
+    .side .brand { font-weight: 900; font-size: 22px; letter-spacing: -.04em; margin-bottom: 28px; }
+    .side .brand span { color: #a78bfa; }
+    .navbtn { display: block; width: 100%; text-align: left; background: transparent; color: #c9c9d6; padding: 11px 12px; border-radius: 10px; margin-bottom: 4px; font-weight: 700; }
+    .navbtn.on, .navbtn:hover { background: #2a2144; color: #fff; }
+    .main { padding: 28px 32px 80px; }
+    .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+    .nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+    .num { background: #17171f; border: 1px solid #2a2a36; border-radius: 16px; padding: 16px 18px; }
+    .num span { color: #9b9ba8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    .num b { display: block; font-size: 32px; margin-top: 8px; }
+    .cols { display: grid; grid-template-columns: 1.4fr .8fr; gap: 14px; }
+    .panel { background: #17171f; border: 1px solid #2a2a36; border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #2a2a36; font-size: 14px; }
+    th { color: #9b9ba8; font-size: 12px; }
+    .bar { height: 10px; background: #2a2a36; border-radius: 99px; overflow: hidden; margin: 8px 0 14px; }
+    .bar > i { display: block; height: 100%; background: #8b5cf6; }
+    .err { color: #fca5a5; }
+    .loginbox { max-width: 420px; margin: 12vh auto; background: #17171f; border: 1px solid #2a2a36; border-radius: 20px; padding: 28px; }
+    .input { background: #0b0b10; color: #fff; border-color: #2a2a36; }
+    @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .side { display: none; } .nums, .cols { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <div class="dash" id="root"></div>
+  <div id="root"></div>
   <script>
     const KEY = 'ouskeyfix_admin';
     let token = localStorage.getItem(KEY) || '';
+    let tab = 'home';
+    let data = null;
     async function api(url, opts = {}) {
-      const r = await fetch(url, {
-        headers: { 'Content-Type': 'application/json', Authorization: token ? 'Bearer ' + token : '', 'X-User-Id': token || '' },
-        ...opts
-      });
+      const r = await fetch(url, { headers: { 'Content-Type': 'application/json', Authorization: token ? 'Bearer ' + token : '', 'X-User-Id': token || '' }, ...opts });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'Request failed');
       return j;
     }
+    const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&','<':'<','>':'>',"'":'&#39;','"':'"'}[c]));
     function loginView(err) {
-      document.getElementById('root').innerHTML = `<div class="card" style="max-width:420px;margin:80px auto"><div class="eyebrow">OuskeyFix owner</div><h1>Log in</h1><p class="meta">Only you see visits, signups, jobs and bookings.</p><form onsubmit="doLogin(event)"><label class="label">Email</label><input class="input" id="email" type="email" value="badjieart@gmail.com" required /><label class="label" style="margin-top:10px">Password</label><input class="input" id="pass" type="password" required /><button class="btn primary" style="margin-top:16px">Log in</button>${err ? `<p class="err">${err}</p>` : ''}</form><p class="meta" style="margin-top:16px"><a href="/">← Back to OuskeyFix</a></p></div>`;
+      document.getElementById('root').innerHTML = `<div class="loginbox"><div class="eyebrow">OuskeyFix</div><h1>Admin home</h1><p class="meta">See visitors, jobs, companies and bookings in one place.</p><form onsubmit="doLogin(event)"><label class="label">Email</label><input class="input" id="email" type="email" value="badjieart@gmail.com" required /><label class="label">Password</label><input class="input" id="pass" type="password" required /><button class="btn primary" style="margin-top:16px">Log in</button>${err ? `<p class="err">${esc(err)}</p>` : ''}</form></div>`;
     }
     async function doLogin(e) {
       e.preventDefault();
       try {
         const j = await api('/api/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('email').value.trim(), password: document.getElementById('pass').value }) });
-        token = j.token; localStorage.setItem(KEY, token); await loadDash();
+        token = j.token; localStorage.setItem(KEY, token); await load();
       } catch (err) { loginView(err.message); }
     }
     function logout() { token = ''; localStorage.removeItem(KEY); loginView(''); }
@@ -46,14 +62,32 @@
       if (!list || !list.length) return '<tr><td colspan="8">Nothing yet</td></tr>';
       return list.map(item => '<tr>' + cols.map(c => `<td>${esc(c(item))}</td>`).join('') + '</tr>').join('');
     }
-    const esc = s => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&','<':'<','>':'>',"'":'&#39;','"':'"'}[c]));
-    async function loadDash() {
-      try {
-        const d = await api('/api/admin/summary');
-        document.getElementById('root').innerHTML = `<div class="row"><div><div class="eyebrow">Owner dashboard</div><h1>Website movement</h1><p class="meta">Logged in as ${esc(d.adminName || 'Owner')}</p></div><div class="stack"><button class="btn secondary" onclick="loadDash()">Refresh</button><button class="btn ghost" onclick="logout()">Log out</button></div></div><div class="nums"><div class="num">Visits today<b>${d.visitsToday}</b></div><div class="num">Visits 7 days<b>${d.visits7d}</b></div><div class="num">All visits<b>${d.visitsTotal}</b></div><div class="num">Signups<b>${d.signups}</b></div><div class="num">Companies<b>${d.companies}</b></div><div class="num">Open jobs<b>${d.jobsOpen}</b></div><div class="num">Quotes<b>${d.quotes}</b></div><div class="num">Bookings<b>${d.bookings}</b></div></div><h2>Recent visits</h2><table><tr><th>Time</th><th>Page</th><th>Country</th><th>City</th></tr>${rows(d.recentVisits, [x => (x.at || '').replace('T',' ').slice(0,16), x => x.path || '/', x => x.country || '—', x => x.city || '—'])}</table><h2 style="margin-top:28px">Signups</h2><table><tr><th>Name</th><th>Role</th><th>City</th><th>Country</th></tr>${rows(d.users, [x => x.name, x => x.role, x => x.city, x => x.country])}</table><h2 style="margin-top:28px">Job requests</h2><table><tr><th>Title</th><th>Category</th><th>City</th><th>Status</th><th>When</th></tr>${rows(d.recentJobs, [x => x.title, x => x.category, x => x.city, x => x.status, x => (x.createdAt || '').replace('T',' ').slice(0,16)])}</table><h2 style="margin-top:28px">Bookings</h2><table><tr><th>ID</th><th>Status</th><th>Amount</th><th>When</th></tr>${rows(d.recentBookings, [x => x.id, x => x.status, x => (x.amount || 0) + ' ' + (x.currency || ''), x => (x.createdAt || '').replace('T',' ').slice(0,16)])}</table><p class="meta" style="margin-top:24px"><a href="/">Open public site</a></p>`;
-      } catch (err) { logout(); loginView(err.message); }
+    function pct(n, max) { if (!max) return 0; return Math.min(100, Math.round((n / max) * 100)); }
+    function home() {
+      const d = data;
+      const maxV = Math.max(d.visitsTotal || 1, 1);
+      return `<div class="nums"><div class="num"><span>Visits today</span><b>${d.visitsToday || 0}</b></div><div class="num"><span>7 days</span><b>${d.visits7d || 0}</b></div><div class="num"><span>All visits</span><b>${d.visitsTotal || 0}</b></div><div class="num"><span>Signups</span><b>${d.signups || 0}</b></div><div class="num"><span>Companies</span><b>${d.companies || 0}</b></div><div class="num"><span>Open jobs</span><b>${d.jobsOpen || 0}</b></div><div class="num"><span>Quotes</span><b>${d.quotes || 0}</b></div><div class="num"><span>Bookings</span><b>${d.bookings || 0}</b></div></div><div class="cols"><div><div class="panel"><h2>How the site is moving</h2><p class="meta">Visits</p><div class="bar"><i style="width:${pct(d.visitsToday, maxV)}%"></i></div><p class="meta">Signups</p><div class="bar"><i style="width:${pct(d.signups, Math.max(d.companies, 10))}%"></i></div><p class="meta">Open jobs</p><div class="bar"><i style="width:${pct(d.jobsOpen, Math.max(d.companies, 10))}%"></i></div><p class="meta">Bookings</p><div class="bar"><i style="width:${pct(d.bookings, Math.max(d.quotes, 10))}%"></i></div></div><div class="panel"><h2>Latest jobs</h2><table><tr><th>Title</th><th>City</th><th>Status</th></tr>${rows((d.recentJobs || []).slice(0, 8), [x => x.title, x => x.city, x => x.status])}</table></div></div><div><div class="panel"><h2>Latest visits</h2><table><tr><th>When</th><th>Page</th><th>City</th></tr>${rows((d.recentVisits || []).slice(0, 8), [x => (x.at || '').replace('T',' ').slice(5,16), x => x.path || '/', x => x.city || '—'])}</table></div><div class="panel"><h2>Quick actions</h2><div class="stack" style="margin-top:12px"><a class="btn primary" href="/">Open website</a><button class="btn secondary" onclick="load()">Refresh</button></div></div></div></div>`;
     }
-    if (token) loadDash(); else loginView('');
+    function tablePage(title, headers, list, cols) {
+      return `<div class="panel"><h2>${title}</h2><table><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>${rows(list, cols)}</table></div>`;
+    }
+    function page() {
+      if (tab === 'visits') return tablePage('All recent visits', ['Time','Page','Country','City'], data.recentVisits, [x => (x.at || '').replace('T',' ').slice(0,16), x => x.path || '/', x => x.country || '—', x => x.city || '—']);
+      if (tab === 'people') return tablePage('People on the platform', ['Name','Role','City','Country'], data.users, [x => x.name, x => x.role, x => x.city, x => x.country]);
+      if (tab === 'jobs') return tablePage('Job requests', ['Title','Category','City','Status','When'], data.recentJobs, [x => x.title, x => x.category, x => x.city, x => x.status, x => (x.createdAt || '').replace('T',' ').slice(0,16)]);
+      if (tab === 'bookings') return tablePage('Bookings', ['ID','Status','Amount','When'], data.recentBookings, [x => x.id, x => x.status, x => (x.amount || 0) + ' ' + (x.currency || ''), x => (x.createdAt || '').replace('T',' ').slice(0,16)]);
+      if (tab === 'ai') return `<div class="panel"><h2>5 AI agents</h2><p class="meta">Intake · Match · Safety · Quote · Owner</p></div>`;
+      return home();
+    }
+    function shell() {
+      const items = [['home','Home'],['visits','Visitors'],['people','People'],['jobs','Jobs'],['bookings','Bookings'],['ai','AI agents']];
+      document.getElementById('root').innerHTML = `<div class="shell"><aside class="side"><div class="brand">Ouskey<span>Fix</span></div>${items.map(([id,label]) => `<button class="navbtn ${tab===id?'on':''}" onclick="tab='${id}';shell()">${label}</button>`).join('')}</aside><main class="main"><div class="top"><div><div class="eyebrow">Admin homepage</div><h1 style="color:#fff;font-size:40px;margin:6px 0 0">Welcome back</h1><p class="meta">${esc(data.adminName || 'Owner')} · live overview</p></div><div class="stack"><button class="btn secondary" onclick="load()">Refresh</button><button class="btn ghost" onclick="logout()">Log out</button></div></div>${page()}</main></div>`;
+    }
+    async function load() {
+      try { data = await api('/api/admin/summary'); shell(); }
+      catch (err) { logout(); loginView(err.message); }
+    }
+    if (token) load(); else loginView('');
   </script>
 </body>
 </html>
